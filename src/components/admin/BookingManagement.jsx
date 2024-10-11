@@ -1,94 +1,111 @@
-import React from 'react';
-import { Box, VStack, Heading, Table, Thead, Tbody, Tr, Th, Td, Text, Alert, AlertIcon, Button, Badge } from "@chakra-ui/react";
-import { useBookings } from '../../hooks/useBookings';
+import React, { useState, useEffect } from 'react';
+import { Box, Table, Thead, Tbody, Tr, Th, Td, Button, HStack, Text, VStack, Heading } from '@chakra-ui/react';
+import LoadingSpinner from '../common/LoadingSpinner';
+import useNotification from '../../hooks/useNotification';
+import BookingForm from './BookingForm';
 
-const BookingManagement = ({ showNotification }) => {
-  const { data: bookingsData, isLoading, error, refetch } = useBookings();
+const BookingManagement = () => {
+  const [bookings, setBookings] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const itemsPerPage = 10;
+  const showNotification = useNotification();
 
-  if (isLoading) return <Box>Loading bookings...</Box>;
-  
-  if (error) {
-    return (
-      <Box>
-        <Alert status="error" mb={4}>
-          <AlertIcon />
-          Error loading bookings: {error.message}
-        </Alert>
-        <Button onClick={() => refetch()}>Try Again</Button>
-      </Box>
-    );
-  }
+  useEffect(() => {
+    fetchBookings(currentPage);
+  }, [currentPage]);
 
-  if (!bookingsData || !Array.isArray(bookingsData.data)) {
-    return (
-      <Alert status="error">
-        <AlertIcon />
-        Invalid booking data format. Please contact support.
-      </Alert>
-    );
-  }
-
-  const bookings = bookingsData.data;
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending': return 'yellow';
-      case 'confirmed': return 'green';
-      case 'in_progress': return 'blue';
-      case 'completed': return 'green';
-      case 'cancelled': return 'red';
-      default: return 'gray';
+  const fetchBookings = async (page) => {
+    setIsLoading(true);
+    try {
+      // Replace this with actual API call
+      // const response = await fetch(`/api/bookings?page=${page}&limit=${itemsPerPage}`);
+      // const data = await response.json();
+      const data = {
+        bookings: Array.from({ length: itemsPerPage }, (_, i) => ({
+          id: i + 1 + (page - 1) * itemsPerPage,
+          customerName: `Customer ${i + 1}`,
+          service: `Service ${i + 1}`,
+          date: new Date().toISOString(),
+          status: ['Confirmed', 'Pending', 'Cancelled'][Math.floor(Math.random() * 3)],
+        })),
+        totalPages: 5,
+      };
+      setBookings(data.bookings);
+      setTotalPages(data.totalPages);
+      showNotification('Success', 'Bookings fetched successfully', 'success');
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
+      showNotification('Error', 'Failed to fetch bookings', 'error');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  };
+
+  const handleAddBooking = (newBooking) => {
+    // Replace this with actual API call to add a new booking
+    setBookings([...bookings, { ...newBooking, id: bookings.length + 1 }]);
+    showNotification('Success', 'Booking added successfully', 'success');
+  };
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
   return (
-    <Box>
-      <Heading as="h2" size="lg" mb={4}>Booking Management</Heading>
-      {bookings.length === 0 ? (
-        <Text>No bookings found.</Text>
-      ) : (
+    <VStack spacing={8} align="stretch">
+      <Box>
+        <Heading size="md" mb={4}>Add New Booking</Heading>
+        <BookingForm onSubmit={handleAddBooking} />
+      </Box>
+      <Box>
+        <Heading size="md" mb={4}>Bookings</Heading>
         <Table variant="simple">
           <Thead>
             <Tr>
-              <Th>Booking ID</Th>
-              <Th>User Email</Th>
-              <Th>Service Name</Th>
+              <Th>ID</Th>
+              <Th>Customer Name</Th>
+              <Th>Service</Th>
+              <Th>Date</Th>
               <Th>Status</Th>
-              <Th>Payment Status</Th>
-              <Th>Total Cost</Th>
-              <Th>Pickup Location</Th>
-              <Th>Dropoff Location</Th>
-              <Th>Created At</Th>
-              <Th>Pickup Date/Time</Th>
             </Tr>
           </Thead>
           <Tbody>
             {bookings.map((booking) => (
               <Tr key={booking.id}>
                 <Td>{booking.id}</Td>
-                <Td>{booking.user?.email || 'N/A'}</Td>
-                <Td>{booking.service?.name || 'N/A'}</Td>
-                <Td>
-                  <Badge colorScheme={getStatusColor(booking.status)}>
-                    {booking.status}
-                  </Badge>
-                </Td>
-                <Td>
-                  <Badge colorScheme={booking.payment_status === 'paid' ? 'green' : 'red'}>
-                    {booking.payment_status}
-                  </Badge>
-                </Td>
-                <Td>${booking.total_cost}</Td>
-                <Td>{booking.pickup_location}</Td>
-                <Td>{booking.dropoff_location}</Td>
-                <Td>{new Date(booking.created_at).toLocaleString()}</Td>
-                <Td>{new Date(booking.pickup_datetime).toLocaleString()}</Td>
+                <Td>{booking.customerName}</Td>
+                <Td>{booking.service}</Td>
+                <Td>{new Date(booking.date).toLocaleDateString()}</Td>
+                <Td>{booking.status}</Td>
               </Tr>
             ))}
           </Tbody>
         </Table>
-      )}
-    </Box>
+        <HStack mt={4} justify="center">
+          <Button
+            onClick={() => handlePageChange(currentPage - 1)}
+            isDisabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <Text>
+            Page {currentPage} of {totalPages}
+          </Text>
+          <Button
+            onClick={() => handlePageChange(currentPage + 1)}
+            isDisabled={currentPage === totalPages}
+          >
+            Next
+          </Button>
+        </HStack>
+      </Box>
+    </VStack>
   );
 };
 

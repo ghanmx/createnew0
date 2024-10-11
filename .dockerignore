@@ -1,0 +1,12 @@
+# flyctl launch added from .gitignore
+**/dist
+**/node_modules
+**/.env.local
+**/.DS_Store
+
+# flyctl launch added from supabase/.gitignore
+supabase/**/                                                                                    # Supabase
+supabase/**/.branches
+supabase/**/.temp
+supabase/**/.env
+fly.toml

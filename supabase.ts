@@ -1,31 +1,38 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+import { createClient } from '@supabase/supabase-js'
+import { mfaHelpers } from './src/utils/mfaHelpers'
 
-export type Database = {
-  public: {
-    Tables: {
-      bookings: {
-        Row: {
-          id: string
-          user_id: string
-          service_id: string
-          status: Database["public"]["Enums"]["booking_status"]
-          payment_status: Database["public"]["Enums"]["payment_status"]
-          pickup_location: string
-          dropoff_location: string
-          vehicle_details: Json
-          distance: number
-          total_cost: number
-          pickup_datetime: string
-          additional_details: string | null
-          created_at: string
-          updated_at: string
-        }
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+
+export const getSupabase = () => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
+
+    // Enable multi-factor authentication
+    supabaseInstance.auth.mfa = mfaHelpers
+
+    // Set password policy
+    supabaseInstance.auth.setPasswordPolicy({
+      minLength: 12,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireNumbers: true,
+      requireSpecialCharacters: true
+    })
+  }
+
+  return supabaseInstance
+}
+
+export default getSupabase()
         Insert: {
           id?: string
           user_id: string

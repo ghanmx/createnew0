@@ -1,193 +1,103 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useToast } from "@chakra-ui/react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSupabaseAuth } from '../integrations/supabase/auth';
-import { createBooking, saveDraftBooking } from '../server/db';
-import { testPayment } from '../utils/testPayment';
-import { getVehicleSize, getTowTruckType, calculateTotalCost } from '../utils/towTruckSelection';
+import { useReducer, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@chakra-ui/react';
+import { getSupabase } from '../../supabase';
+import { wrapApiCall } from '../utils/apiUtils';
+
+const initialState = {
+  formData: {},
+  distance: 0,
+  totalCost: 0,
+  isPaymentWindowOpen: false,
+  isLoading: false,
+};
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'SET_FORM_DATA':
+      return { ...state, formData: { ...state.formData, ...action.payload } };
+    case 'SET_DISTANCE':
+      return { ...state, distance: action.payload };
+    case 'SET_TOTAL_COST':
+      return { ...state, totalCost: action.payload };
+    case 'SET_PAYMENT_WINDOW':
+      return { ...state, isPaymentWindowOpen: action.payload };
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    default:
+      return state;
+  }
+}
 
 export const useBookingForm = () => {
-  const [formData, setFormData] = useState(() => {
-    const savedData = localStorage.getItem('bookingFormData');
-    return savedData ? JSON.parse(savedData, (key, value) => {
-      if (key === 'pickupDateTime') return new Date(value);
-      return value;
-    }) : {
-      serviceType: '',
-      userName: '',
-      phoneNumber: '',
-      vehicleBrand: '',
-      vehicleModel: '',
-      vehicleColor: '',
-      licensePlate: '',
-      vehicleSize: '',
-      pickupAddress: '',
-      dropOffAddress: '',
-      vehicleIssue: '',
-      additionalDetails: '',
-      wheelsStatus: '',
-      pickupDateTime: new Date(),
-      paymentMethod: 'card',
-      vehiclePosition: '',
-      inNeutral: false,
-      engineStarts: false,
-      wheelsSteer: false,
-    };
-  });
-
-  const [distance, setDistance] = useState(0);
-  const [totalCost, setTotalCost] = useState(0);
-  const [isPaymentWindowOpen, setIsPaymentWindowOpen] = useState(false);
-
+  const [state, dispatch] = useReducer(reducer, initialState);
   const navigate = useNavigate();
-  const { session } = useSupabaseAuth();
   const toast = useToast();
-  const queryClient = useQueryClient();
-
-  const createBookingMutation = useMutation({
-    mutationFn: createBooking,
-    onSuccess: () => {
-      queryClient.invalidateQueries('bookings');
-      toast({
-        title: 'Booking created.',
-        description: "Your booking has been created successfully.",
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-      navigate('/confirmation');
-    },
-    onError: (error) => {
-      console.error('Error creating booking:', error);
-      toast({
-        title: 'An error occurred.',
-        description: error.message || 'There was an error processing your request. Please try again.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-    },
-  });
-
-  const saveDraft = useCallback(async (draftData) => {
-    if (!session) {
-      toast({
-        title: 'Authentication required',
-        description: 'Please log in to save a draft.',
-        status: 'warning',
-        duration: 5000,
-        isClosable: true,
-      });
-      return false;
-    }
-
-    try {
-      await saveDraftBooking({
-        ...draftData,
-        userId: session.user.id,
-        totalCost,
-        distance,
-      });
-      return true;
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      return false;
-    }
-  }, [session, totalCost, distance, toast]);
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value
-    }));
-
-    if (name === 'vehicleBrand') {
-      setFormData(prevData => ({
-        ...prevData,
-        vehicleModel: ''
-      }));
-    }
-
-    if (name === 'vehicleModel' || name === 'vehiclePosition') {
-      updateTotalCost();
-    }
+    dispatch({ type: 'SET_FORM_DATA', payload: { [name]: value } });
   }, []);
-
-  const updateTotalCost = useCallback(() => {
-    const vehicleSize = getVehicleSize(formData.vehicleModel);
-    const towTruckType = getTowTruckType(vehicleSize);
-    const requiresManeuver = formData.vehiclePosition === 'obstructed';
-    const cost = calculateTotalCost(distance, towTruckType, requiresManeuver);
-    setTotalCost(cost);
-  }, [formData.vehicleModel, formData.vehiclePosition, distance]);
 
   const handleDateTimeChange = useCallback((date) => {
-    setFormData(prevData => ({
-      ...prevData,
-      pickupDateTime: date
-    }));
+    dispatch({ type: 'SET_FORM_DATA', payload: { pickupDateTime: date } });
   }, []);
 
-  const handleBookingProcess = useCallback(async (data) => {
-    if (!session) {
+  const handleBookingProcess = useCallback(async (bookingData) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    const supabase = getSupabase();
+
+    const result = await wrapApiCall(() => supabase
+      .from('bookings')
+      .insert([bookingData])
+      .select()
+    );
+
+    dispatch({ type: 'SET_LOADING', payload: false });
+
+    if (result) {
       toast({
-        title: 'Authentication required',
-        description: 'Please log in to create a booking.',
-        status: 'warning',
+        title: "Booking Successful",
+        description: "Your booking has been confirmed.",
+        status: "success",
         duration: 5000,
         isClosable: true,
       });
-      return;
+      dispatch({ type: 'SET_PAYMENT_WINDOW', payload: true });
     }
+  }, [toast]);
 
-    try {
-      const testResult = await testPayment(totalCost);
-      if (!testResult.success) {
-        throw new Error(testResult.message || 'Payment test failed');
-      }
+  const saveDraft = useCallback(async (draftData) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    const supabase = getSupabase();
 
-      await createBookingMutation.mutateAsync({
-        ...data,
-        userId: session.user.id,
-        totalCost,
-        distance,
-        additional_details: data.additionalDetails || '',
-      });
-    } catch (error) {
-      console.error('Error processing booking:', error);
+    const result = await wrapApiCall(() => supabase
+      .from('booking_drafts')
+      .insert([draftData])
+      .select()
+    );
+
+    dispatch({ type: 'SET_LOADING', payload: false });
+
+    if (result) {
       toast({
-        title: 'Booking Error',
-        description: error.message || 'There was an error processing your request. Please try again.',
-        status: 'error',
+        title: "Draft Saved",
+        description: "Your booking draft has been saved.",
+        status: "success",
         duration: 5000,
         isClosable: true,
       });
     }
-  }, [session, totalCost, distance, createBookingMutation, toast]);
-
-  useEffect(() => {
-    localStorage.setItem('bookingFormData', JSON.stringify(formData));
-  }, [formData]);
-
-  useEffect(() => {
-    updateTotalCost();
-  }, [updateTotalCost, distance]);
+  }, [toast]);
 
   return {
-    formData,
-    setFormData,
-    distance,
-    setDistance,
-    totalCost,
-    setTotalCost,
-    isPaymentWindowOpen,
-    setIsPaymentWindowOpen,
+    ...state,
     handleChange,
     handleDateTimeChange,
     handleBookingProcess,
-    isLoading: createBookingMutation.isLoading,
     saveDraft,
+    setDistance: (distance) => dispatch({ type: 'SET_DISTANCE', payload: distance }),
+    setTotalCost: (cost) => dispatch({ type: 'SET_TOTAL_COST', payload: cost }),
+    setIsPaymentWindowOpen: (isOpen) => dispatch({ type: 'SET_PAYMENT_WINDOW', payload: isOpen }),
   };
 };

@@ -66,13 +66,13 @@ const App = () => {
                     <Route path="/contact" element={<Contact />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/booking" element={<BookingPage />} />
-                    <Route 
-                      path="/admin" 
+                    <Route
+                      path="/admin"
                       element={
                         <ProtectedRoute adminOnly>
                           <AdminPanel />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
                   </Routes>
                 </Layout>

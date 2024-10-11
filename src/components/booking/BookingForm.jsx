@@ -90,6 +90,21 @@ const BookingForm = () => {
   };
 
   const onSubmit = async (data) => {
+    // Check the size of the data being sent
+    const dataSize = new Blob([JSON.stringify(data)]).size;
+    const maxSize = 1024 * 1024; // 1MB limit (adjust as needed)
+
+    if (dataSize > maxSize) {
+      toast({
+        title: "Error",
+        description: "The form data is too large. Please reduce the amount of information or contact support.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+
     await handleBookingProcess({
       ...data,
       additional_details: data.additionalDetails,

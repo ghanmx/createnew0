@@ -1,138 +1,150 @@
-import React from 'react';
-import { Box, VStack, Heading, Table, Thead, Tbody, Tr, Th, Td, Button, Select, Alert, AlertIcon, useDisclosure } from "@chakra-ui/react";
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSupabaseAuth } from '../../integrations/supabase/auth';
-import { ROLES } from '../../constants/roles';
-import { useUsers, useUpdateUser, useDeleteUser } from '../../integrations/supabase/hooks/users';
-import { AlertDialog, AlertDialogBody, AlertDialogFooter, AlertDialogHeader, AlertDialogContent, AlertDialogOverlay } from "@chakra-ui/react";
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { Box, Table, Thead, Tbody, Tr, Th, Td, Button, HStack, Text, Spinner, Alert, AlertIcon } from '@chakra-ui/react';
 
-const UserManagement = ({ showNotification, userRole }) => {
-  const queryClient = useQueryClient();
-  const { session } = useSupabaseAuth();
-  const { data: users, isLoading, error } = useUsers();
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const cancelRef = React.useRef();
+const UserRow = React.memo(({ user }) => (
+  <Tr>
+    <Td>{user.id}</Td>
+    <Td>{user.name}</Td>
+    <Td>{user.email}</Td>
+    <Td>{user.role}</Td>
+    <Td>{user.status}</Td>
+  </Tr>
+));
 
-  const updateUserMutation = useUpdateUser();
-  const deleteUserMutation = useDeleteUser();
+const UserManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const itemsPerPage = 10;
+  const showNotification = useNotification();
 
-  const handleRoleChange = (userId, newRole) => {
-    updateUserMutation.mutate({ id: userId, role: newRole }, {
-      onSuccess: () => {
-        showNotification('User Updated', 'The user role has been updated successfully.', 'success');
-      },
-      onError: (error) => {
-        showNotification('Update Failed', `Failed to update user role: ${error.message}`, 'error');
-      }
-    });
+  const fetchUsers = useCallback(async (page) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      // Replace this with actual API call
+      // const response = await fetch(`/api/users?page=${page}&limit=${itemsPerPage}`);
+      // if (!response.ok) throw new Error('Failed to fetch users');
+      // const data = await response.json();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulating API delay
+      const data = {
+        users: Array.from({ length: itemsPerPage }, (_, i) => ({
+          id: i + 1 + (page - 1) * itemsPerPage,
+          name: `User ${i + 1}`,
+          email: `user${i + 1}@example.com`,
+          role: ['Admin', 'User'][Math.floor(Math.random() * 2)],
+          status: ['Active', 'Inactive'][Math.floor(Math.random() * 2)],
+        })),
+        totalPages: 5,
+      };
+      setUsers(data.users);
+      setTotalPages(data.totalPages);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [itemsPerPage]);
+
+  useEffect(() => {
+    fetchUsers(currentPage);
+  }, [currentPage, fetchUsers]);
+
+  const fetchUsers = async (page) => {
+    setIsLoading(true);
+    try {
+      // Replace this with actual API call
+      // const response = await fetch(`/api/users?page=${page}&limit=${itemsPerPage}`);
+      // const data = await response.json();
+      const data = {
+        users: Array.from({ length: itemsPerPage }, (_, i) => ({
+          id: i + 1 + (page - 1) * itemsPerPage,
+          name: `User ${i + 1}`,
+          email: `user${i + 1}@example.com`,
+          role: ['Admin', 'User'][Math.floor(Math.random() * 2)],
+          status: ['Active', 'Inactive'][Math.floor(Math.random() * 2)],
+        })),
+        totalPages: 5,
+      };
+      setUsers(data.users);
+      setTotalPages(data.totalPages);
+      showNotification('Success', 'Users fetched successfully', 'success');
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      showNotification('Error', 'Failed to fetch users', 'error');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    onOpen();
-    // Store the userId to be deleted when confirmed
-    handleDeleteUser.userId = userId;
-  };
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+  }, []);
 
-  const confirmDelete = () => {
-    const userId = handleDeleteUser.userId;
-    deleteUserMutation.mutate(userId, {
-      onSuccess: () => {
-        showNotification('User Deleted', 'The user has been deleted successfully.', 'success');
-        onClose();
-      },
-      onError: (error) => {
-        showNotification('Delete Failed', `Failed to delete user: ${error.message}`, 'error');
-        onClose();
-      }
-    });
-  };
+  const paginationControls = useMemo(() => (
+    <HStack mt={4} justify="center">
+      <Button
+        onClick={() => handlePageChange(currentPage - 1)}
+        isDisabled={currentPage === 1 || isLoading}
+      >
+        Previous
+      </Button>
+      <Text>
+        Page {currentPage} of {totalPages}
+      </Text>
+      <Button
+        onClick={() => handlePageChange(currentPage + 1)}
+        isDisabled={currentPage === totalPages || isLoading}
+      >
+        Next
+      </Button>
+    </HStack>
+  ), [currentPage, totalPages, handlePageChange, isLoading]);
 
-  if (isLoading) return <Box>Loading users...</Box>;
-  if (error) return <Box>Error loading users: {error.message}</Box>;
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="300px">
+        <Spinner size="xl" />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Alert status="error">
+        <AlertIcon />
+        {error}
+      </Alert>
+    );
+  }
+
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <Box>
-      <Heading as="h2" size="lg" mb={4}>User Management</Heading>
-      {!Array.isArray(users) ? (
-        <Alert status="error">
-          <AlertIcon />
-          Error: User data is not in the expected format. Please contact support.
-        </Alert>
-      ) : users.length === 0 ? (
-        <Alert status="info">
-          <AlertIcon />
-          No users found.
-        </Alert>
-      ) : (
-        <Table variant="simple">
-          <Thead>
-            <Tr>
-              <Th>ID</Th>
-              <Th>Email</Th>
-              <Th>Role</Th>
-              <Th>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {users.map((user) => (
-              <Tr key={user.id}>
-                <Td>{user.id}</Td>
-                <Td>{user.email}</Td>
-                <Td>
-                  <Select
-                    value={user.role}
-                    onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                    isDisabled={userRole !== ROLES.SUPER_ADMIN || user.id === session?.user?.id}
-                  >
-                    <option value={ROLES.USER}>User</option>
-                    <option value={ROLES.ADMIN}>Admin</option>
-                    <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
-                  </Select>
-                </Td>
-                <Td>
-                  <Button
-                    colorScheme="red"
-                    size="sm"
-                    onClick={() => handleDeleteUser(user.id)}
-                    isDisabled={user.id === session?.user?.id}
-                  >
-                    Delete
-                  </Button>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-      )}
-
-      <AlertDialog
-        isOpen={isOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={onClose}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Delete User
-            </AlertDialogHeader>
-
-            <AlertDialogBody>
-              Are you sure you want to delete this user? This action cannot be undone.
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={onClose}>
-                Cancel
-              </Button>
-              <Button colorScheme="red" onClick={confirmDelete} ml={3}>
-                Delete
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+      <Table variant="simple">
+        <Thead>
+          <Tr>
+            <Th>ID</Th>
+            <Th>Name</Th>
+            <Th>Email</Th>
+            <Th>Role</Th>
+            <Th>Status</Th>
+          </Tr>
+        </Thead>
+        <Tbody>
+          {users.map((user) => (
+            <UserRow key={user.id} user={user} />
+          ))}
+        </Tbody>
+      </Table>
+      {paginationControls}
     </Box>
   );
 };
 
-export default UserManagement;
+export default React.memo(UserManagement);
