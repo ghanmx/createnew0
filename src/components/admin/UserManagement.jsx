@@ -81,7 +81,7 @@ const UserManagement = () => {
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-  }, []);
+  };[];
 
   const paginationControls = useMemo(() => (
     <HStack mt={4} justify="center">

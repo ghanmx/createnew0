@@ -14,8 +14,8 @@ export const processPayment = async (amount, paymentMethodId) => {
     }
   } catch (error) {
     console.error('Error processing payment:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: `Payment processing error: ${error.message}`,
       details: error.response?.data || 'No additional details available'
     };

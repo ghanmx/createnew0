@@ -33,7 +33,7 @@ const BookingForm = () => {
   const [isFormMinimized, setIsFormMinimized] = React.useState(false);
   const navigate = useNavigate();
   const toast = useToast();
-  
+
   const {
     formData,
     setFormData,
@@ -112,7 +112,7 @@ const BookingForm = () => {
   };
 
   return (
-    <Box 
+    <Box
       position={isMobile ? "fixed" : "absolute"}
       bottom={isMobile ? "0" : "auto"}
       right={isMobile ? "0" : "20px"}
@@ -160,10 +160,10 @@ const BookingForm = () => {
                 handleDateTimeChange={handleDateTimeChange}
               />
               <BookingFormSummary distance={distance} totalCost={totalCost} />
-              <FormButtons 
-                isValid={isValid} 
-                isLoading={isLoading} 
-                onCancel={() => navigate('/')} 
+              <FormButtons
+                isValid={isValid}
+                isLoading={isLoading}
+                onCancel={() => navigate('/')}
                 onSaveDraft={handleSaveDraft}
               />
             </form>

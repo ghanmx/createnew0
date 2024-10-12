@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from './types/supabase'
 import { mfaHelpers } from './src/utils/mfaHelpers'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -359,4 +360,3 @@ export type Enums<
   : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
     ? PublicSchema["Enums"][PublicEnumNameOrOptions]
     : never
-
