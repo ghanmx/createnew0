@@ -9,7 +9,25 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "test": "cypress run",
-    "cypress:open": "cypress open"
+    "cypress:open": "cypress open",
+    "start:dev": "vite --host 0.0.0.0 --port 8080",
+    "supabase:init": "supabase init",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status", 
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.10",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.12",
+    "supabase": "^1.204.0",
+    "vite": "^5.4.8"
+  },
   },
   "dependencies": {
     "@chakra-ui/react": "^2.8.1",
